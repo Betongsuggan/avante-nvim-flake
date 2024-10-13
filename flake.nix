@@ -12,38 +12,37 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { selt, nixpkgs, flake-utils, avante, ... }:
+  outputs = { nixpkgs, flake-utils, avante, ... }:
   flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs { inherit system; };
+      lockFile = avante + /Cargo.lock;
     in {
-      packages = stdenv.mkDerivation rec {
-        name = "avante.nvim";
-
+      packages.default = pkgs.rustPlatform.buildRustPackage {
+        pname = "avante.nvim";
+        version = "v0.0.8";
         src = avante;
-
-        buildInputs = [ pkgs.cargo ];
-
-        buildPhase = ''
-          echo "Copying python scripts to derivation"
-          make
-        '';
-
-        #installPhase = ''
-        #  mkdir -p $out/scripts
-
-        #  cp usr/share/handygccs/scripts/constants.py $out/scripts
-        #  cp usr/share/handygccs/scripts/handycon.py $out/scripts
-        #'';
-      };
-      # nix build
-      #defaultPackage = pkgs.hello;
-
-      # nix develop .#hello or nix shell .#hello
-      #devShells.hello = pkgs.mkShell { buildInputs = [ pkgs.hello pkgs.cowsay ]; };
+        buildFeatures = [ "lua51" ];
       
-      # nix develop or nix shell
-      #devShell = pkgs.hello;        
+        cargoLock = {
+          inherit lockFile;
+          outputHashes = {
+            "mlua-0.10.0-beta.1" = "sha256-ZEZFATVldwj0pmlmi0s5VT0eABA15qKhgjmganrhGBY=";
+          };
+        };
+
+        postInstall = ''
+          cp -r . $out
+
+          mkdir -p $out/build
+          cp -r $out/lib/libavante_repo_map.so $out/build/avante_repo_map.so
+          cp -r $out/lib/libavante_templates.so $out/build/avante_templates.so
+          cp -r $out/lib/libavante_tokenizers.so $out/build/avante_tokenizers.so
+        '';
+      
+        nativeBuildInputs = [ pkgs.pkg-config ];
+        PKG_CONFIG_PATH = "${pkgs.openssl.dev}/lib/pkgconfig";
+      };
     }
   );
 }
